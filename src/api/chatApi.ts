@@ -1,3 +1,4 @@
+import { chatConfig } from "../config/chatConfig";
 
 export interface ChatMessage {
   role: 'system' | 'user' | 'assistant';
@@ -11,7 +12,7 @@ export interface ChatRequest {
 }
 
 
-const API_URL = 'http://127.0.0.1:8002/api/v1/chat';
+const API_URL = chatConfig.apiUrl!;
 
 export async function sendChatRequest(payload: ChatRequest): Promise<{ raw: any; text: string }> {
   const res = await fetch(API_URL, {
@@ -69,4 +70,57 @@ export async function sendChatRequest(payload: ChatRequest): Promise<{ raw: any;
   const text = extractText(json) ?? JSON.stringify(json);
 
   return { raw: json, text };
+}
+
+// ejemplo: src/api/chatApi.ts (snippet relevante)
+export async function sendChatRequestStream(
+  payload: ChatRequest,
+  onChunk: (chunk: string) => void,
+  signal?: AbortSignal
+) {
+  const response = await fetch(chatConfig.apiStreamUrl!, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ ...payload, stream: true }),
+    signal, // <-- esto permite abortar el fetch
+  });
+
+  if (!response.ok) {
+    const txt = await response.text().catch(() => "");
+    throw new Error(`Backend error ${response.status}: ${txt}`);
+  }
+
+  const reader = response.body!.getReader();
+  const decoder = new TextDecoder();
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      const text = decoder.decode(value, { stream: true });
+
+      // evaluar y extraer chunks. Ajusta el parse según el formato del backend.
+      const lines = text
+          .split("\n")
+          .filter((l) => l.startsWith("data: "));
+      for (const line of lines) {
+        // soporta formatos como "data: {...}" o directamente JSON chunks
+        const raw = line.startsWith("data: ") ? line.slice(6) : line;
+        if (raw === "[DONE]") return;
+        try {
+          const json = JSON.parse(raw);
+          const delta = json?.choices?.[0]?.delta?.content ?? json?.choices?.[0]?.message?.content;
+          if (delta) onChunk(delta);
+        } catch {
+          // si el chunk no es JSON, lo devolvemos tal cual
+          onChunk(raw);
+        }
+      }
+    }
+  } finally {
+    // cerrar reader si se abortó o terminó
+    try {
+      reader.releaseLock();
+    } catch {}
+  }
 }
