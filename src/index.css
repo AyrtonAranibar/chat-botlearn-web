@@ -66,3 +66,15 @@ button:focus-visible {
     background-color: #f9f9f9;
   }
 }
+
+/*MARKDOWN*/
+.chat-message * {
+  font-family: 'Inter', sans-serif;
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+.chat-message h1 { font-size: 24px; }
+.chat-message h2 { font-size: 20px; }
+.chat-message strong { font-weight: 600; }
+.chat-message em { font-style: italic; }

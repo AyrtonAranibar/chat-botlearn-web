@@ -82,7 +82,7 @@ export async function sendChatRequestStream(
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ ...payload, stream: true }),
-    signal, // <-- esto permite abortar el fetch
+    signal,
   });
 
   if (!response.ok) {
@@ -93,34 +93,32 @@ export async function sendChatRequestStream(
   const reader = response.body!.getReader();
   const decoder = new TextDecoder();
 
+  let buffer = "";
+
   try {
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
-      const text = decoder.decode(value, { stream: true });
 
-      // evaluar y extraer chunks. Ajusta el parse según el formato del backend.
-      const lines = text
-          .split("\n")
-          .filter((l) => l.startsWith("data: "));
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("*\n\n*");
+      
+      buffer = lines.pop() ?? "";
+
       for (const line of lines) {
-        // soporta formatos como "data: {...}" o directamente JSON chunks
-        const raw = line.startsWith("data: ") ? line.slice(6) : line;
-        if (raw === "[DONE]") return;
-        try {
-          const json = JSON.parse(raw);
-          const delta = json?.choices?.[0]?.delta?.content ?? json?.choices?.[0]?.message?.content;
-          if (delta) onChunk(delta);
-        } catch {
-          // si el chunk no es JSON, lo devolvemos tal cual
-          onChunk(raw);
-        }
+        if (!line.startsWith("data:")) continue;
+
+        const raw = line.slice(6);
+
+        if (raw.trim() === "[DONE]") return;
+
+        onChunk(raw);
       }
     }
   } finally {
-    // cerrar reader si se abortó o terminó
     try {
       reader.releaseLock();
     } catch {}
   }
 }
+
