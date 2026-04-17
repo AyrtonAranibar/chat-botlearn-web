@@ -22,12 +22,8 @@ export function useChat() {
     setMessages((prev) => [...prev, userMessage]);
 
     const payload: ChatRequest = {
-      messages: [
-        { role: chatConfig.botRole, content: chatConfig.botBehavior },
-        { role: 'user', content: userContent },
-      ],
-      max_tokens: chatConfig.maxTokens,
-      temperature: chatConfig.temperature,
+      conversationId: 1, // luego lo hacemos dinámico
+      message: userContent,
     };
 
     setLoading(true);

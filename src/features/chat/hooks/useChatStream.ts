@@ -48,9 +48,8 @@ export function useChatStream() {
     };
 
     const payload: ChatRequest = {
-      messages: [systemMessage, userChatMessage],
-      max_tokens: chatConfig.maxTokens,
-      temperature: chatConfig.temperature,
+      conversationId: 1,
+      message: userContent,
     };
 
     setStreaming(true);

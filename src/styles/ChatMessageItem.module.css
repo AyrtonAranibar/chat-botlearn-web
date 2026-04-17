@@ -5,7 +5,7 @@
 
 .bubble {
   max-width: 75%;
-  padding: 10px 14px;
+  padding: 5px 14px;
   border-radius: 12px;
 }
 
@@ -28,8 +28,8 @@
 
 .bubble strong {
   display: block;
-  font-size: 20px;
-  margin: 10px 0 5px 0;
+  font-size: 16px;
+  margin: 5px 0 5px 0;
 }
 
 .bubble em {

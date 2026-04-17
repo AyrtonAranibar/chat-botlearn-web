@@ -6,9 +6,8 @@ export interface ChatMessage {
 }
 
 export interface ChatRequest {
-  messages: ChatMessage[];
-  max_tokens: number;
-  temperature: number;
+  conversationId: number;
+  message: string;
 }
 
 
@@ -90,35 +89,44 @@ export async function sendChatRequestStream(
     throw new Error(`Backend error ${response.status}: ${txt}`);
   }
 
-  const reader = response.body!.getReader();
-  const decoder = new TextDecoder();
+   const reader = response.body!.getReader();
+  const decoder = new TextDecoder("utf-8");
 
   let buffer = "";
 
-  try {
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
+  while (true) {
+    const { done, value } = await reader.read();
 
-      buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split("*\n\n*");
-      
-      buffer = lines.pop() ?? "";
+    if (done) break;
 
-      for (const line of lines) {
-        if (!line.startsWith("data:")) continue;
+    buffer += decoder.decode(value, { stream: true });
 
-        const raw = line.slice(6);
+    const lines = buffer.split("\n");
 
-        if (raw.trim() === "[DONE]") return;
+    buffer = lines.pop() || "";
 
-        onChunk(raw);
+    for (const line of lines) {
+      const trimmed = line.trim();
+      console.log("RAW LINE:", trimmed)
+      if (!trimmed.startsWith("data:")) continue;
+
+      const data = trimmed.replace("data:", "").trim();
+
+      if (data === "[DONE]") return;
+
+      try {
+        const json = JSON.parse(data);
+
+        const token = json.choices?.[0]?.delta?.content;
+        console.log("TOKEN:", token)
+        if (token) {
+          onChunk(token);
+        }
+
+      } catch (e) {
+        console.warn("Invalid JSON chunk", data);
       }
     }
-  } finally {
-    try {
-      reader.releaseLock();
-    } catch {}
   }
 }
 
